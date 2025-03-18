@@ -1,5 +1,7 @@
 import pandas as pd
 import re
+from transformers import AutoTokenizer
+from sklearn.model_selection import train_test_split
 
 def clean_text(text):
     # Remove unnecessary characters (e.g., special characters, emojis)
@@ -29,10 +31,49 @@ def apply_cleaning(df, text_column="content"):
     df["cleaned_content"] = df[text_column].apply(clean_text)
     return df
 
+def tokenize_text(text, tokenizer):
+    """
+    Tokenizes the input text using the specified tokenizer.
+    """
+    tokens = tokenizer.encode_plus(
+        text,
+        add_special_tokens=True,
+        max_length=128,
+        padding='max_length',
+        truncation=True,
+        return_attention_mask=True,
+        return_tensors='pt'
+    )
+    return tokens
+
+def apply_tokenization(df, tokenizer, text_column="cleaned_content"):
+    """
+    Apply the tokenize_text function to the specified text column of a DataFrame.
+    """
+    df['tokens'] = df[text_column].apply(lambda x: tokenize_text(x, tokenizer))
+    return df
+
+def split_data(df, test_size=0.2, random_state=42):
+    """
+    Splits the DataFrame into training and validation sets.
+    """
+    train_df, val_df = train_test_split(df, test_size=test_size, random_state=random_state)
+    return train_df, val_df
+
 # Example usage (for testing purposes)
-if __name__ == '__main__':
+if __name__ == '_main_':
     data = {'content': ["This is a TeXt with  some   SPACES and 123! #@$"]}
     example_df = pd.DataFrame(data)
-    
+
     cleaned_df = apply_cleaning(example_df)
-    print(cleaned_df)
+    tokenized_df = apply_tokenization(cleaned_df, tokenizer)
+    train_df, val_df = split_data(tokenized_df)
+
+    print("Cleaned DataFrame:")
+    print(cleaned_df.head())
+    print("\nTokenized DataFrame:")
+    print(tokenized_df.head())
+    print("\nTraining DataFrame:")
+    print(train_df.head())
+    print("\nValidation DataFrame:")
+    print(val_df.head())
