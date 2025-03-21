@@ -22,16 +22,18 @@ def test_apply_cleaning():
 
     pd.testing.assert_frame_equal(cleaned_df, expected_df)
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+@pytest.fixture
+def tokenizer():
+    return AutoTokenizer.from_pretrained("bert-base-uncased")
 
-def test_tokenize_text():
+def test_tokenize_text(tokenizer):
     # Test case 1: Basic tokenization
     text = "This is a test sentence."
     tokens = tokenize_text(text, tokenizer)
     assert tokens['input_ids'].shape == (1, 128)  # Check input_ids shape
     assert tokens['attention_mask'].shape == (1, 128)  # Check attention_mask shape
 
-def test_apply_tokenization():
+def test_apply_tokenization(tokenizer):
     # Test case 1: Basic DataFrame tokenization
     data = {'cleaned_content': ["This is a test sentence.", "Another sentence."]}
     example_df = pd.DataFrame(data)

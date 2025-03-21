@@ -59,21 +59,3 @@ def split_data(df, test_size=0.2, random_state=42):
     """
     train_df, val_df = train_test_split(df, test_size=test_size, random_state=random_state)
     return train_df, val_df
-
-# Example usage (for testing purposes)
-if __name__ == '_main_':
-    data = {'content': ["This is a TeXt with  some   SPACES and 123! #@$"]}
-    example_df = pd.DataFrame(data)
-
-    cleaned_df = apply_cleaning(example_df)
-    tokenized_df = apply_tokenization(cleaned_df, tokenizer)
-    train_df, val_df = split_data(tokenized_df)
-
-    print("Cleaned DataFrame:")
-    print(cleaned_df.head())
-    print("\nTokenized DataFrame:")
-    print(tokenized_df.head())
-    print("\nTraining DataFrame:")
-    print(train_df.head())
-    print("\nValidation DataFrame:")
-    print(val_df.head())
