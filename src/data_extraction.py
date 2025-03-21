@@ -14,9 +14,3 @@ def load_data(file_path):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
-
-if __name__ == '__main__':
-    file_path = 'dataset.csv'
-    data = load_data(file_path)
-    if data is not None:
-        print(data.head())
