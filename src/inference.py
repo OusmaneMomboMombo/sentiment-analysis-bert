@@ -46,11 +46,14 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    texts = [
-        "This is a great product! I highly recommend it.",
-        "This is a terrible product! I do not recommend it."
-    ]
+    print("🧠 BERT Sentiment Analyzer")
+    print("Type a sentence to analyze the sentiment (or type 'exit' to quit)")
 
-    for text in texts:
-        sentiment = predict_sentiment(text, model, tokenizer, device)
-        print(f"Text: \"{text}\" → Sentiment: {sentiment}")
+    while True:
+        user_input = input("\n> Your sentence: ")
+        if user_input.lower() in ["exit", "quit", "q"]:
+            print("👋 Goodbye!")
+            break
+
+        sentiment = predict_sentiment(user_input, model, tokenizer, device)
+        print(f"👉 Sentiment: {sentiment.upper()}")
