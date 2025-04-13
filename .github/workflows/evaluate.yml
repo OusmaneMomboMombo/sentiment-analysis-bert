@@ -18,7 +18,7 @@ jobs:
       run: pip install -r requirements.txt
     - name: Evaluate
       run: python src/evaluate.py
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4  # <-- Seule ligne modifiée (v3 → v4)
       with:
         name: metrics
         path: metrics.json
