@@ -8,8 +8,12 @@ from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
     AutoConfig,
-    AdamW,
     get_linear_schedule_with_warmup,
+)
+from torch.optim import AdamW  # <-- Nouvel import
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification
 )
 from sklearn.metrics import accuracy_score
 import os
@@ -113,12 +117,20 @@ def save_model(model, filepath):
     print(f"Model saved to {filepath}")
 
 
-def load_trained_model(model_name="bert-base-uncased", num_labels=2, filepath="model.pth"):
-    config = AutoConfig.from_pretrained(model_name, num_labels=num_labels)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
-    model.load_state_dict(torch.load(filepath))
+def load_trained_model(model_name="bert-base-uncased", filepath="saved_models/bert_sentiment.pth"):
+    # Charge la configuration de base
+    config = AutoConfig.from_pretrained(model_name, num_labels=2)
+    
+    # Initialise le modèle
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        config=config,
+        ignore_mismatched_sizes=True
+    )
+    
+    # Charge les poids entraînés
+    model.load_state_dict(torch.load(filepath, map_location=torch.device('cpu')))
     return model
-
 
 # --- Main ---
 if __name__ == '__main__':

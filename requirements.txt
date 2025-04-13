@@ -4,3 +4,4 @@ transformers
 torch
 scikit-learn
 pytest
+huggingface_hub==0.19.4

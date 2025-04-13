@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    volumes:
+      - "./saved_models:/app/saved_models"
+      - "./logs:/app/logs"
+    command: ["python", "./src/inference.py"]  # <-- Ajouté
+    networks:
+      - sentiment-network
+
+networks:
+  sentiment-network:
+    driver: bridge

@@ -41,19 +41,15 @@ def predict_sentiment(text, model, tokenizer, device="cpu"):
 
 
 if __name__ == '__main__':
-    model_path = "saved_models/bert_sentiment.pth"
+    model_path = "/app/saved_models/bert_sentiment.pth"  # Chemin dans le conteneur
     model = load_trained_model(filepath=model_path)
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print("🧠 BERT Sentiment Analyzer")
-    print("Type a sentence to analyze the sentiment (or type 'exit' to quit)")
-
-    while True:
-        user_input = input("\n> Your sentence: ")
-        if user_input.lower() in ["exit", "quit", "q"]:
-            print("👋 Goodbye!")
-            break
-
-        sentiment = predict_sentiment(user_input, model, tokenizer, device)
+    # Mode CLI (au lieu du mode interactif)
+    if len(sys.argv) > 1:
+        text = " ".join(sys.argv[1:])
+        sentiment = predict_sentiment(text, model, tokenizer, device)
         print(f"👉 Sentiment: {sentiment.upper()}")
+    else:
+        print("Usage: docker run -v /chemin/saved_models:/app/saved_models sentiment-cli 'Votre texte ici'")
