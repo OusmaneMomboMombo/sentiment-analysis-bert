@@ -21,34 +21,34 @@ jobs:
 
       - name: Evaluate model and check threshold
         run: |
-          python -c '
-import json
-from transformers import pipeline
+          echo "import json
+          from transformers import pipeline
 
-# 1. Charger le modèle
-model = pipeline("text-classification", model="saved_models/bert_sentiment.pth")
+          # 1. Charger le modèle
+          model = pipeline('text-classification', model='saved_models/bert_sentiment.pth')
 
-# 2. Données de test minimales (à remplacer par vos données)
-test_texts = ["Super produit !", "Je suis déçu"]
-true_labels = [1, 0]  # 1=positif, 0=négatif
+          # 2. Données de test minimales (à remplacer par vos données)
+          test_texts = ['Super produit !', 'Je suis déçu']
+          true_labels = [1, 0]  # 1=positif, 0=négatif
 
-# 3. Prédictions
-predictions = model(test_texts)
-pred_labels = [1 if p["label"].upper() == "POSITIVE" else 0 for p in predictions]
+          # 3. Prédictions
+          predictions = model(test_texts)
+          pred_labels = [1 if p['label'].upper() == 'POSITIVE' else 0 for p in predictions]
 
-# 4. Calcul métrique
-accuracy = sum(1 for true, pred in zip(true_labels, pred_labels) if true == pred) / len(true_labels)
-threshold = 0.85  # Seuil exigé
+          # 4. Calcul métrique
+          accuracy = sum(1 for true, pred in zip(true_labels, pred_labels) if true == pred) / len(true_labels)
+          threshold = 0.85  # Seuil exigé
 
-# 5. Sauvegarde résultats
-with open("metrics.json", "w") as f:
-    json.dump({"accuracy": accuracy, "threshold": threshold, "passed": accuracy >= threshold}, f)
+          # 5. Sauvegarde résultats
+          with open('metrics.json', 'w') as f:
+              json.dump({'accuracy': accuracy, 'threshold': threshold, 'passed': accuracy >= threshold}, f)
 
-# 6. Validation
-if accuracy < threshold:
-    raise ValueError(f"❌ Accuracy {accuracy:.2f} < seuil {threshold}")
-print(f"✅ Accuracy: {accuracy:.2f} (Seuil: {threshold})")
-          '
+          # 6. Validation
+          if accuracy < threshold:
+              raise ValueError(f'❌ Accuracy {accuracy:.2f} < seuil {threshold}')
+          print(f'✅ Accuracy: {accuracy:.2f} (Seuil: {threshold})')
+          " > script.py
+          python script.py
 
       - name: Upload results
         uses: actions/upload-artifact@v4
