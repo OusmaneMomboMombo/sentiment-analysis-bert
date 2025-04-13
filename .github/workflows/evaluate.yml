@@ -9,49 +9,49 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Install dependencies
-      run: pip install torch transformers pandas scikit-learn
+      - name: Install dependencies
+        run: pip install torch transformers pandas scikit-learn
 
-    - name: Evaluate model and check threshold
-      run: |
-        python -c "
+      - name: Evaluate model and check threshold
+        run: |
+          python -c '
 import json
 from transformers import pipeline
 
 # 1. Charger le modèle
-model = pipeline('text-classification', model='saved_models/bert_sentiment.pth')
+model = pipeline("text-classification", model="saved_models/bert_sentiment.pth")
 
 # 2. Données de test minimales (à remplacer par vos données)
-test_texts = ['Super produit !', 'Je suis déçu']
+test_texts = ["Super produit !", "Je suis déçu"]
 true_labels = [1, 0]  # 1=positif, 0=négatif
 
 # 3. Prédictions
 predictions = model(test_texts)
-pred_labels = [1 if p['label'].upper() == 'POSITIVE' else 0 for p in predictions]
+pred_labels = [1 if p["label"].upper() == "POSITIVE" else 0 for p in predictions]
 
 # 4. Calcul métrique
 accuracy = sum(1 for true, pred in zip(true_labels, pred_labels) if true == pred) / len(true_labels)
 threshold = 0.85  # Seuil exigé
 
 # 5. Sauvegarde résultats
-with open('metrics.json', 'w') as f:
-    json.dump({'accuracy': accuracy, 'threshold': threshold, 'passed': accuracy >= threshold}, f)
+with open("metrics.json", "w") as f:
+    json.dump({"accuracy": accuracy, "threshold": threshold, "passed": accuracy >= threshold}, f)
 
 # 6. Validation
 if accuracy < threshold:
-    raise ValueError(f'❌ Accuracy {accuracy:.2f} < seuil {threshold}')
-print(f'✅ Accuracy: {accuracy:.2f} (Seuil: {threshold})')
-        "
+    raise ValueError(f"❌ Accuracy {accuracy:.2f} < seuil {threshold}")
+print(f"✅ Accuracy: {accuracy:.2f} (Seuil: {threshold})")
+          '
 
-    - name: Upload results
-      uses: actions/upload-artifact@v4
-      with:
-        name: evaluation-metrics
-        path: metrics.json
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-metrics
+          path: metrics.json
