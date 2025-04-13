@@ -17,8 +17,7 @@ jobs:
         python-version: '3.9'
 
     - name: Install dependencies
-      run: |
-        pip install torch transformers pandas scikit-learn
+      run: pip install torch transformers pandas scikit-learn
 
     - name: Evaluate model and check threshold
       run: |
