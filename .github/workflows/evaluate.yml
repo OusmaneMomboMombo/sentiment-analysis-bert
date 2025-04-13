@@ -19,51 +19,40 @@ jobs:
     - name: Install dependencies
       run: |
         pip install torch transformers pandas scikit-learn
-        echo "Dépendances installées"
 
-    - name: Create evaluation script
+    - name: Evaluate model and check threshold
       run: |
-        cat << 'EOF' > evaluate.py
-        import json
-        import pandas as pd
-        from transformers import pipeline
-        from sklearn.metrics import accuracy_score
+        python -c "
+import json
+from transformers import pipeline
 
-        # Charger modèle et données
-        model = pipeline("text-classification", model="saved_models/bert_sentiment.pth")
-        test_data = pd.DataFrame({
-            "text": ["J'adore ce film", "Je déteste ce restaurant"],
-            "label": [1, 0]  # 1=positif, 0=négatif
-        })
+# 1. Charger le modèle
+model = pipeline('text-classification', model='saved_models/bert_sentiment.pth')
 
-        # Évaluation
-        predictions = model(test_data["text"].tolist())
-        pred_labels = [1 if p["label"].upper() == "POSITIVE" else 0 for p in predictions]
-        accuracy = accuracy_score(test_data["label"], pred_labels)
+# 2. Données de test minimales (à remplacer par vos données)
+test_texts = ['Super produit !', 'Je suis déçu']
+true_labels = [1, 0]  # 1=positif, 0=négatif
 
-        # Seuil de validation (à adapter)
-        threshold = 0.85
-        metrics = {
-            "accuracy": accuracy,
-            "threshold": threshold,
-            "status": "SUCCESS" if accuracy >= threshold else "FAILED"
-        }
+# 3. Prédictions
+predictions = model(test_texts)
+pred_labels = [1 if p['label'].upper() == 'POSITIVE' else 0 for p in predictions]
 
-        # Sauvegarder les résultats
-        with open("metrics.json", "w") as f:
-            json.dump(metrics, f)
+# 4. Calcul métrique
+accuracy = sum(1 for true, pred in zip(true_labels, pred_labels) if true == pred) / len(true_labels)
+threshold = 0.85  # Seuil exigé
 
-        # Échouer si en dessous du seuil
-        if accuracy < threshold:
-            raise ValueError(f"Accuracy {accuracy:.2f} < threshold {threshold}")
-        EOF
+# 5. Sauvegarde résultats
+with open('metrics.json', 'w') as f:
+    json.dump({'accuracy': accuracy, 'threshold': threshold, 'passed': accuracy >= threshold}, f)
 
-    - name: Run evaluation
-      run: |
-        python evaluate.py
-        cat metrics.json
+# 6. Validation
+if accuracy < threshold:
+    raise ValueError(f'❌ Accuracy {accuracy:.2f} < seuil {threshold}')
+print(f'✅ Accuracy: {accuracy:.2f} (Seuil: {threshold})')
+        "
 
-    - uses: actions/upload-artifact@v4
+    - name: Upload results
+      uses: actions/upload-artifact@v4
       with:
-        name: model-evaluation
+        name: evaluation-metrics
         path: metrics.json
