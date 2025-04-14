@@ -1,3 +1,8 @@
+"""
+Module for sentiment prediction using a trained model and tokenizer.
+Provides a CLI interface for prediction.
+"""
+
 import os
 import sys
 import torch
@@ -5,7 +10,7 @@ from transformers import AutoTokenizer
 from src.model import load_trained_model
 from src.data_processing import clean_text
 
-# Add the parent directory to the path (useful for direct execution)
+# Ajout du dossier parent au path (utile pour exécution directe)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def predict_sentiment(input_text, model, tokenizer, device="cpu"):
@@ -54,10 +59,10 @@ if __name__ == '__main__':
     tokenizer_instance = AutoTokenizer.from_pretrained("bert-base-uncased")
     device_name = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Command-line interface mode
+    # Mode CLI
     if len(sys.argv) > 1:
-        user_input = " ".join(sys.argv[1:])  # Renamed to avoid shadowing outer variable
-        result_sentiment = predict_sentiment(user_input, model_instance, tokenizer_instance, device_name)
+        input_text = " ".join(sys.argv[1:])
+        result_sentiment = predict_sentiment(input_text, model_instance, tokenizer_instance, device_name)
         print(f"👉 Sentiment: {result_sentiment.upper()}")
     else:
-        print("Usage: docker run -v /chemin/saved_models:/app/saved_models sentiment-cli 'Your text here'")
+        print("Usage: docker run -v /chemin/saved_models:/app/saved_models sentiment-cli 'Votre texte ici'")
