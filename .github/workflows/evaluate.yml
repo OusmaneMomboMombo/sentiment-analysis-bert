@@ -17,40 +17,56 @@ jobs:
         python-version: '3.9'
     
     - name: Install dependencies
-      run: pip install -r requirements.txt torch transformers
+      run: |
+        pip install -r requirements.txt
+        pip install safetensors transformers torch
 
     - name: Run evaluation
       run: |
         python -c "
         import json
-        from transformers import pipeline
+        import torch
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        from safetensors import safe_open
 
+        # Configuration
+        model_dir = './saved_models'
         test_cases = [
-            ('Super produit !', 'POSITIVE'),
-            ('Très déçu par ce service', 'NEGATIVE'),
-            ('Exactement ce que je cherchais', 'POSITIVE'),
-            ('Qualité médiocre', 'NEGATIVE'),
-            ('Rapport qualité-prix imbattable', 'POSITIVE')
+            ('Super produit !', 1),
+            ('Très déçu', 0),
+            ('Je recommande', 1),
+            ('Mauvaise qualité', 0),
+            ('Excellent rapport qualité-prix', 1)
         ]
 
-        classifier = pipeline('text-classification', 
-                            model='./saved_models/',
-                            tokenizer='bert-base-uncased')
+        # Chargement
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        
+        # Chargement des poids safetensors
+        with safe_open(f'{model_dir}/model.safetensors', framework='pt') as f:
+            for key in f.keys():
+                model.state_dict()[key].copy_(f.get_tensor(key))
 
-        correct = sum(
-            1 for text, expected in test_cases
-            if classifier(text)[0]['label'] == expected
-        )
+        # Évaluation
+        correct = 0
+        for text, expected in test_cases:
+            inputs = tokenizer(text, return_tensors='pt')
+            with torch.no_grad():
+                outputs = model(**inputs)
+            predicted = torch.argmax(outputs.logits).item()
+            if predicted == expected:
+                correct += 1
+
         accuracy = correct / len(test_cases)
-
         with open('metrics.json', 'w') as f:
-            json.dump({'accuracy': accuracy}, f)
+            json.dump({'accuracy': accuracy, 'tested_samples': len(test_cases)}, f)
         
         assert accuracy >= 0.85, f'Accuracy {accuracy:.1%} < 85%'
         "
 
-    - name: Upload results
-      uses: actions/upload-artifact@v4  # Version mise à jour
+    - name: Upload metrics
+      uses: actions/upload-artifact@v4
       with:
-        name: metrics
+        name: model-metrics
         path: metrics.json
