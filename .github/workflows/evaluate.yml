@@ -23,13 +23,15 @@ jobs:
         sudo apt-get install -y git-lfs
         git lfs install
         pip install -r requirements.txt
-        pip install transformers torch
+        pip install transformers torch scikit-learn
 
-    - name: Run evaluation
+    - name: Run enhanced evaluation
       run: |
         python -c "
         import json
         import torch
+        import numpy as np
+        from sklearn.metrics import classification_report
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         # Configuration
@@ -45,7 +47,8 @@ jobs:
             ('Déception totale', 0)
         ]
 
-        # Chargement du modèle
+        # Chargement avec vérification
+        print('\n🔍 Chargement du modèle...')
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
         model = AutoModelForSequenceClassification.from_pretrained(
             model_dir,
@@ -53,42 +56,38 @@ jobs:
         )
         model.eval()
 
-        # Évaluation
-        correct = 0
-        results = []
+        # Évaluation améliorée
+        print('\n🧪 Début de l\'évaluation...')
+        all_preds = []
+        all_labels = []
+        
         for text, expected in test_cases:
             inputs = tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
             with torch.no_grad():
                 outputs = model(**inputs)
             predicted = torch.argmax(outputs.logits).item()
-            is_correct = predicted == expected
-            correct += is_correct
-            results.append({
-                'text': text,
-                'expected': expected,
-                'predicted': predicted,
-                'correct': is_correct
-            })
+            
+            all_preds.append(predicted)
+            all_labels.append(expected)
 
-        accuracy = correct / len(test_cases)
-        print('\n📊 Résultats détaillés:')
-        for r in results:
-            print('Text:', r['text'])
-            print('Expected:', r['expected'], 'Predicted:', r['predicted'])
-            print('Result:', '✅' if r['correct'] else '❌')
-            print('---')
+        # Métriques complètes
+        report = classification_report(all_labels, all_preds, target_names=['negative', 'positive'])
+        accuracy = np.mean(np.array(all_labels) == np.array(all_preds))
         
-        print('\n✅ Accuracy globale: {:.1%}'.format(accuracy))
-        
+        print('\n📊 Rapport complet:')
+        print(report)
+        print(f'\n✅ Accuracy: {accuracy:.1%}')
+
+        # Sauvegarde des résultats
         with open('metrics.json', 'w') as f:
             json.dump({
                 'accuracy': accuracy,
-                'tested_samples': len(test_cases),
-                'details': results
+                'classification_report': report,
+                'predictions': list(zip([t[0] for t in test_cases], all_labels, all_preds))
             }, f, indent=2)
-        
+
         if accuracy < 0.85:
-            print('\n❌ Le modèle a besoin de plus de training!')
+            print('\n❌ Validation failed: Model accuracy below 85%')
             exit(1)
         "
 
