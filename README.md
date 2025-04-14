@@ -106,13 +106,7 @@ docker run -v ./saved_models:/app/saved_models sentiment-analysis "Sample text"
 | Ousmane MOMBO MOMBO | - Data pipeline architecture<br>- Docker configuration<br>- CI/CD setup |
 | Nathan REGOMBY | - BERT model implementation<br>- Training logic<br>- Test suite |
 
-## Best Practices
-- **Code Quality**: Pylint with 9.5/10 score
-- **Testing**: 85%+ test coverage
-- **Version Control**: 
-  - Feature branch workflow
-  - Semantic commit messages
-  - Mandatory code reviews
+
 
 
 
