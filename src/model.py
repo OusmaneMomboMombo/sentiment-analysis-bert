@@ -104,7 +104,7 @@ def train_model(model, train_dataloader, val_dataloader, optimizer, scheduler, e
             save_model(model, "saved_models/best_model")
             print(f"Nouveau meilleur modèle sauvegardé (Accuracy: {best_accuracy:.2%})")
 
-def evaluate_model(model, dataloader, device="cpu"):
+def evaluate_model(model, dataloader, device="cpu", return_report=False):
     """Évalue le modèle et retourne les métriques"""
     model.eval()
     all_preds = []
@@ -120,18 +120,14 @@ def evaluate_model(model, dataloader, device="cpu"):
             all_labels.extend(batch['labels'].cpu().numpy())
     
     accuracy = accuracy_score(all_labels, all_preds)
-    report = classification_report(all_labels, all_preds, target_names=['negative', 'positive'])
     
-    print("\nRapport de classification:")
-    print(report)
+    if return_report:
+        report = classification_report(all_labels, all_preds, target_names=['negative', 'positive'])
+        print("\nRapport de classification:")
+        print(report)
+        return accuracy, report
     
-    return accuracy, report
-
-def save_model(model, output_dir="saved_models"):
-    """Sauvegarde le modèle complet avec tokenizer et config"""
-    os.makedirs(output_dir, exist_ok=True)
-    model.save_pretrained(output_dir)
-    print(f"Modèle complet sauvegardé dans {output_dir}")
+    return accuracy
 
 def load_trained_model(model_dir="saved_models"):
     """Charge un modèle entraîné depuis le dossier"""
@@ -145,6 +141,12 @@ def load_trained_model(model_dir="saved_models"):
     except Exception as e:
         print(f"Erreur de chargement: {e}")
         raise
+
+def save_model(model, output_dir="saved_models"):
+    """Sauvegarde le modèle complet avec tokenizer et config"""
+    os.makedirs(output_dir, exist_ok=True)
+    model.save_pretrained(output_dir)
+    print(f"Modèle complet sauvegardé dans {output_dir}")
 
 if __name__ == '__main__':
     # Configuration
