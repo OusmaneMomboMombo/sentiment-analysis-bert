@@ -27,7 +27,6 @@ jobs:
         import json
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
-        from safetensors import safe_open
 
         # Configuration
         model_dir = './saved_models'
@@ -39,19 +38,15 @@ jobs:
             ('Excellent rapport qualité-prix', 1)
         ]
 
-        # Chargement
+        # Chargement simplifié
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
         model = AutoModelForSequenceClassification.from_pretrained(model_dir)
-        
-        # Chargement des poids safetensors
-        with safe_open(f'{model_dir}/model.safetensors', framework='pt') as f:
-            for key in f.keys():
-                model.state_dict()[key].copy_(f.get_tensor(key))
+        model.eval()
 
         # Évaluation
         correct = 0
         for text, expected in test_cases:
-            inputs = tokenizer(text, return_tensors='pt')
+            inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
             with torch.no_grad():
                 outputs = model(**inputs)
             predicted = torch.argmax(outputs.logits).item()
