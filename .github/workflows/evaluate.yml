@@ -43,7 +43,7 @@ jobs:
             ('Pas terrible', 0),
             ('Incroyable !', 1),
             ('Déception totale', 0)
-        ]  # Ajout de plus d'exemples pour meilleure évaluation
+        ]
 
         # Chargement du modèle
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
@@ -71,11 +71,14 @@ jobs:
             })
 
         accuracy = correct / len(test_cases)
-        print(f'\n📊 Résultats détaillés:')
+        print('\n📊 Résultats détaillés:')
         for r in results:
-            print(f"Text: {r['text']} | Expected: {r['expected']} | Predicted: {r['predicted']} | {'✅' if r['correct'] else '❌'}")
+            print('Text:', r['text'])
+            print('Expected:', r['expected'], 'Predicted:', r['predicted'])
+            print('Result:', '✅' if r['correct'] else '❌')
+            print('---')
         
-        print(f'\n✅ Accuracy globale: {accuracy:.1%}')
+        print('\n✅ Accuracy globale: {:.1%}'.format(accuracy))
         
         with open('metrics.json', 'w') as f:
             json.dump({
@@ -86,9 +89,9 @@ jobs:
         
         if accuracy < 0.85:
             print('\n❌ Le modèle a besoin de plus de training!')
-            exit(1)  # Échec du workflow
+            exit(1)
         "
-    
+
     - name: Upload metrics
       if: always()
       uses: actions/upload-artifact@v4
