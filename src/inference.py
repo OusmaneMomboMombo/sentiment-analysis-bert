@@ -1,22 +1,30 @@
-import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import sys
 import torch
 from transformers import AutoTokenizer
 from src.model import load_trained_model
 from src.data_processing import clean_text
 
+# Add the parent directory to the path (useful for direct execution)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def predict_sentiment(text, model, tokenizer, device="cpu"):
+def predict_sentiment(input_text, model, tokenizer, device="cpu"):
     """
     Predicts the sentiment of a given text.
-    Returns "positive" or "negative".
+    
+    Args:
+        input_text (str): The text to analyze.
+        model: The trained sentiment classification model.
+        tokenizer: The tokenizer corresponding to the model.
+        device (str): Device to run the inference on ("cpu" or "cuda").
+    
+    Returns:
+        str: "positive" or "negative" based on the model's prediction.
     """
     model.eval()
     model.to(device)
 
-    cleaned_text = clean_text(text)
+    cleaned_text = clean_text(input_text)
 
     encoded = tokenizer.encode_plus(
         cleaned_text,
@@ -41,15 +49,15 @@ def predict_sentiment(text, model, tokenizer, device="cpu"):
 
 
 if __name__ == '__main__':
-    model_path = "/app/saved_models/bert_sentiment.pth"  # Chemin dans le conteneur
-    model = load_trained_model(filepath=model_path)
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    MODEL_PATH = "/app/saved_models/bert_sentiment.pth"
+    model_instance = load_trained_model(filepath=MODEL_PATH)
+    tokenizer_instance = AutoTokenizer.from_pretrained("bert-base-uncased")
+    device_name = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Mode CLI (au lieu du mode interactif)
+    # Command-line interface mode
     if len(sys.argv) > 1:
-        text = " ".join(sys.argv[1:])
-        sentiment = predict_sentiment(text, model, tokenizer, device)
-        print(f"👉 Sentiment: {sentiment.upper()}")
+        user_input = " ".join(sys.argv[1:])  # Renamed to avoid shadowing outer variable
+        result_sentiment = predict_sentiment(user_input, model_instance, tokenizer_instance, device_name)
+        print(f"👉 Sentiment: {result_sentiment.upper()}")
     else:
-        print("Usage: docker run -v /chemin/saved_models:/app/saved_models sentiment-cli 'Votre texte ici'")
+        print("Usage: docker run -v /chemin/saved_models:/app/saved_models sentiment-cli 'Your text here'")
