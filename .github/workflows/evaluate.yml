@@ -10,23 +10,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+      with:
+        lfs: true  # Active le support Git LFS
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
     
+    - name: Install Git LFS
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git-lfs
+        git lfs install
+
+    - name: Pull LFS files
+      run: |
+        git lfs pull
+
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
         pip install transformers torch
 
-    - name: Clean up model files
+    - name: Verify model files
       run: |
-        # Garde seulement les fichiers nécessaires
         cd saved_models
-        rm -f model.safetensors bert_sentiment.pth
-        ls -l  # Vérification
+        ls -lh
+        file pytorch_model.bin  # Vérifie le type de fichier
 
     - name: Run evaluation
       run: |
@@ -45,12 +56,13 @@ jobs:
             ('Excellent rapport qualité-prix', 1)
         ]
 
-        # Chargement avec désactivation explicite de safetensors
+        # Chargement avec paramètres de sécurité
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
         model = AutoModelForSequenceClassification.from_pretrained(
             model_dir,
             local_files_only=True,
-            use_safetensors=False  # Force le format PyTorch
+            use_safetensors=False,
+            torch_dtype=torch.float32
         )
         model.eval()
 
@@ -63,9 +75,8 @@ jobs:
             predicted = torch.argmax(outputs.logits).item()
             correct += (predicted == expected)
 
-        # Résultats
         accuracy = correct / len(test_cases)
-        print(f'Accuracy: {accuracy:.1%}')
+        print(f'✅ Accuracy: {accuracy:.1%}')
         
         with open('metrics.json', 'w') as f:
             json.dump({
@@ -74,7 +85,7 @@ jobs:
                 'model_format': 'pytorch'
             }, f)
         
-        assert accuracy >= 0.85, f'Accuracy {accuracy:.1%} < 85%'
+        assert accuracy >= 0.85, f'❌ Accuracy {accuracy:.1%} < 85%'
         "
 
     - name: Upload metrics
@@ -82,4 +93,3 @@ jobs:
       with:
         name: model-metrics
         path: metrics.json
-        
