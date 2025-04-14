@@ -17,37 +17,46 @@ jobs:
         python-version: '3.9'
     
     - name: Install dependencies
-      run: pip install -r requirements.txt torch scikit-learn
+      run: pip install -r requirements.txt torch transformers
 
-    - name: Calculate Real Metrics
-  run: |
-    python -c "
-    import json
-    from transformers import pipeline
+    - name: Run real evaluation
+      run: |
+        python -c "
+        import json
+        from transformers import pipeline
 
-    # 1. Chargez le modèle (chemin relatif depuis la racine du dépôt)
-    classifier = pipeline('text-classification', 
-                        model='./saved_models/',
-                        tokenizer='bert-base-uncased')
+        # Phrases de test avec labels attendus
+        test_cases = [
+            ('J\'adore ce film, il est génial', 'POSITIVE'),
+            ('Le service client est horrible', 'NEGATIVE'),
+            ('Très bon rapport qualité-prix', 'POSITIVE'),
+            ('Je ne recommande pas ce produit', 'NEGATIVE'),
+            ('Livraison ultra rapide, merci !', 'POSITIVE')
+        ]
 
-    # 2. Testez avec des phrases réelles (à adapter)
-    test_samples = [
-        {'text': 'Ce film est excellent', 'expected': 'POSITIVE'},
-        {'text': 'Je déteste ce produit', 'expected': 'NEGATIVE'}
-    ]
+        # Charge le modèle
+        classifier = pipeline('text-classification', 
+                            model='./saved_models/',
+                            tokenizer='bert-base-uncased')
 
-    # 3. Calculez la précision
-    correct = 0
-    for sample in test_samples:
-        pred = classifier(sample['text'])[0]['label']
-        if pred == sample['expected']:
-            correct += 1
-    accuracy = correct / len(test_samples)
+        # Calcule la précision
+        correct = 0
+        for text, expected in test_cases:
+            pred = classifier(text)[0]['label']
+            if pred == expected:
+                correct += 1
+        accuracy = correct / len(test_cases)
 
-    # 4. Sauvegardez les résultats
-    with open('metrics.json', 'w') as f:
-        json.dump({'accuracy': accuracy, 'test_samples': len(test_samples)}, f)
+        # Sauvegarde les résultats
+        with open('metrics.json', 'w') as f:
+            json.dump({'accuracy': accuracy, 'tested_samples': len(test_cases)}, f)
 
-    # 5. Échouez si < 85%
-    assert accuracy >= 0.85, f'Précision trop faible: {accuracy:.2f}'
-    "
+        # Échoue si < 85%
+        assert accuracy >= 0.85, f'Performance insuffisante ({accuracy:.1%} < 85%)'
+        "
+
+    - name: Upload metrics
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-metrics
+        path: metrics.json
