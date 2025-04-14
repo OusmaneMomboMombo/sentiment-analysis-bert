@@ -19,44 +19,38 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt torch transformers
 
-    - name: Run real evaluation
+    - name: Run evaluation
       run: |
         python -c "
         import json
         from transformers import pipeline
 
-        # Phrases de test avec labels attendus
         test_cases = [
-            ('J\'adore ce film, il est génial', 'POSITIVE'),
-            ('Le service client est horrible', 'NEGATIVE'),
-            ('Très bon rapport qualité-prix', 'POSITIVE'),
-            ('Je ne recommande pas ce produit', 'NEGATIVE'),
-            ('Livraison ultra rapide, merci !', 'POSITIVE')
+            ('Super produit !', 'POSITIVE'),
+            ('Très déçu par ce service', 'NEGATIVE'),
+            ('Exactement ce que je cherchais', 'POSITIVE'),
+            ('Qualité médiocre', 'NEGATIVE'),
+            ('Rapport qualité-prix imbattable', 'POSITIVE')
         ]
 
-        # Charge le modèle
         classifier = pipeline('text-classification', 
                             model='./saved_models/',
                             tokenizer='bert-base-uncased')
 
-        # Calcule la précision
-        correct = 0
-        for text, expected in test_cases:
-            pred = classifier(text)[0]['label']
-            if pred == expected:
-                correct += 1
+        correct = sum(
+            1 for text, expected in test_cases
+            if classifier(text)[0]['label'] == expected
+        )
         accuracy = correct / len(test_cases)
 
-        # Sauvegarde les résultats
         with open('metrics.json', 'w') as f:
-            json.dump({'accuracy': accuracy, 'tested_samples': len(test_cases)}, f)
-
-        # Échoue si < 85%
-        assert accuracy >= 0.85, f'Performance insuffisante ({accuracy:.1%} < 85%)'
+            json.dump({'accuracy': accuracy}, f)
+        
+        assert accuracy >= 0.85, f'Accuracy {accuracy:.1%} < 85%'
         "
 
-    - name: Upload metrics
-      uses: actions/upload-artifact@v3
+    - name: Upload results
+      uses: actions/upload-artifact@v4  # Version mise à jour
       with:
-        name: model-metrics
+        name: metrics
         path: metrics.json
