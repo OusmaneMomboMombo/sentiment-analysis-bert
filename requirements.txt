@@ -1,7 +1,10 @@
 pandas
 numpy
-transformers
-torch
-scikit-learn
 pytest
 huggingface_hub==0.19.4
+transformers>=4.30.0
+torch>=2.0.0
+scikit-learn>=1.0.0
+tqdm
+pytest
+pylint
