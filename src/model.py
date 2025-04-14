@@ -9,21 +9,18 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoConfig,
     get_linear_schedule_with_warmup,
+    BertForSequenceClassification,
+    BertTokenizer
 )
-from torch.optim import AdamW  # <-- Nouvel import
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSequenceClassification
-)
-from sklearn.metrics import accuracy_score
-import os
+from torch.optim import AdamW
+from sklearn.metrics import accuracy_score, classification_report
 import pandas as pd
+import numpy as np
+from tqdm import tqdm
 
 from src.data_processing import clean_text, apply_cleaning, apply_tokenization, split_data
 from src.data_extraction import load_data
 
-
-# --- Classe SentimentDataset ---
 class SentimentDataset(Dataset):
     def __init__(self, dataframe, tokenizer, max_len=128):
         self.dataframe = dataframe
@@ -34,7 +31,7 @@ class SentimentDataset(Dataset):
         return len(self.dataframe)
 
     def __getitem__(self, index):
-        text = self.dataframe['content'].iloc[index]
+        text = str(self.dataframe['content'].iloc[index])
         score = self.dataframe['score'].iloc[index]
         label = 1 if score >= 3 else 0
 
@@ -54,107 +51,150 @@ class SentimentDataset(Dataset):
             'labels': torch.tensor(label, dtype=torch.long)
         }
 
-
-# --- Fonctions modèle ---
 def load_model(model_name="bert-base-uncased", num_labels=2):
-    config = AutoConfig.from_pretrained(model_name, num_labels=num_labels)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
-    return model
-
+    """Charge le modèle pré-entraîné avec une nouvelle tête de classification"""
+    try:
+        # Essayer de charger depuis le dossier local d'abord
+        config = AutoConfig.from_pretrained(model_name, num_labels=num_labels)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_name,
+            config=config,
+            ignore_mismatched_sizes=True
+        )
+        print(f"Modèle chargé depuis {model_name}")
+        return model
+    except Exception as e:
+        print(f"Erreur de chargement: {e}")
+        raise
 
 def train_model(model, train_dataloader, val_dataloader, optimizer, scheduler, epochs=3, device="cpu"):
+    """Entraîne le modèle avec évaluation périodique"""
     model.to(device)
-
+    best_accuracy = 0
+    
     for epoch in range(epochs):
         model.train()
         total_loss = 0
-
-        for batch in train_dataloader:
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-
+        progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{epochs}")
+        
+        for batch in progress_bar:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            
             optimizer.zero_grad()
-            outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+            outputs = model(**batch)
             loss = outputs.loss
             total_loss += loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             scheduler.step()
+            
+            progress_bar.set_postfix({'loss': loss.item()})
 
         avg_loss = total_loss / len(train_dataloader)
-        print(f"Epoch {epoch+1}: Training Loss = {avg_loss:.4f}")
-        evaluate_model(model, val_dataloader, device)
+        print(f"\nEpoch {epoch+1}:")
+        print(f"Training Loss = {avg_loss:.4f}")
+        
+        # Évaluation
+        val_accuracy, _ = evaluate_model(model, val_dataloader, device)
+        
+        # Sauvegarde du meilleur modèle
+        if val_accuracy > best_accuracy:
+            best_accuracy = val_accuracy
+            save_model(model, "saved_models/best_model")
+            print(f"Nouveau meilleur modèle sauvegardé (Accuracy: {best_accuracy:.2%})")
 
-
-def evaluate_model(model, val_dataloader, device="cpu"):
+def evaluate_model(model, dataloader, device="cpu"):
+    """Évalue le modèle et retourne les métriques"""
     model.eval()
     all_preds = []
     all_labels = []
-
+    
     with torch.no_grad():
-        for batch in val_dataloader:
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-
-            outputs = model(input_ids, attention_mask=attention_mask)
-            logits = outputs.logits
-            preds = torch.argmax(logits, dim=1)
-
+        for batch in tqdm(dataloader, desc="Évaluation"):
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(**batch)
+            preds = torch.argmax(outputs.logits, dim=1)
+            
             all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
+            all_labels.extend(batch['labels'].cpu().numpy())
+    
     accuracy = accuracy_score(all_labels, all_preds)
-    print(f"Validation Accuracy: {accuracy:.4f}")
-    return accuracy
-
-
-def save_model(model, filepath):
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    torch.save(model.state_dict(), filepath)
-    print(f"Model saved to {filepath}")
-
-
-def load_trained_model(model_name="bert-base-uncased", filepath="saved_models/bert_sentiment.pth"):
-    # Charge la configuration de base
-    config = AutoConfig.from_pretrained(model_name, num_labels=2)
+    report = classification_report(all_labels, all_preds, target_names=['negative', 'positive'])
     
-    # Initialise le modèle
-    model = AutoModelForSequenceClassification.from_pretrained(
-        model_name,
-        config=config,
-        ignore_mismatched_sizes=True
-    )
+    print("\nRapport de classification:")
+    print(report)
     
-    # Charge les poids entraînés
-    model.load_state_dict(torch.load(filepath, map_location=torch.device('cpu')))
-    return model
+    return accuracy, report
 
-# --- Main ---
+def save_model(model, output_dir="saved_models"):
+    """Sauvegarde le modèle complet avec tokenizer et config"""
+    os.makedirs(output_dir, exist_ok=True)
+    model.save_pretrained(output_dir)
+    print(f"Modèle complet sauvegardé dans {output_dir}")
+
+def load_trained_model(model_dir="saved_models"):
+    """Charge un modèle entraîné depuis le dossier"""
+    try:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_dir,
+            local_files_only=True
+        )
+        print(f"Modèle chargé depuis {model_dir}")
+        return model
+    except Exception as e:
+        print(f"Erreur de chargement: {e}")
+        raise
+
 if __name__ == '__main__':
-    file_path = 'dataset.csv'
-    df = load_data(file_path)
-
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    # Configuration
+    DATA_PATH = 'dataset.csv'
+    MODEL_NAME = "bert-base-uncased"
+    EPOCHS = 3
+    BATCH_SIZE = 16
+    LEARNING_RATE = 2e-5
+    
+    # Préparation des données
+    print("Chargement des données...")
+    df = load_data(DATA_PATH)
     cleaned_df = apply_cleaning(df)
-    tokenized_df = apply_tokenization(cleaned_df, tokenizer)
-    train_df, val_df = split_data(tokenized_df)
-
+    
+    print("Préparation des datasets...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    train_df, val_df = split_data(cleaned_df)
+    
     train_dataset = SentimentDataset(train_df, tokenizer)
     val_dataset = SentimentDataset(val_df, tokenizer)
-
-    BATCH_SIZE = 32
+    
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
-
-    model = load_model(num_labels=2)
+    
+    # Initialisation du modèle
+    print("Initialisation du modèle...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    optimizer = AdamW(model.parameters(), lr=2e-5)
-    total_steps = len(train_loader) * 3
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
-
-    train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=1, device=device)
-    save_model(model, "saved_models/bert_sentiment.pth")
+    model = load_model(MODEL_NAME)
+    
+    # Optimiseur et scheduler
+    optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
+    total_steps = len(train_loader) * EPOCHS
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=0,
+        num_training_steps=total_steps
+    )
+    
+    # Entraînement
+    print("Début de l'entraînement...")
+    train_model(
+        model,
+        train_loader,
+        val_loader,
+        optimizer,
+        scheduler,
+        epochs=EPOCHS,
+        device=device
+    )
+    
+    # Sauvegarde finale
+    save_model(model)
+    print("Entraînement terminé et modèle sauvegardé.")
