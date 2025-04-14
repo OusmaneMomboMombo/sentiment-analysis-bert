@@ -11,33 +11,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        lfs: true  # Active le support Git LFS
+        lfs: true
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
     
-    - name: Install Git LFS
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git-lfs
-        git lfs install
-
-    - name: Pull LFS files
-      run: |
-        git lfs pull
-
     - name: Install dependencies
       run: |
+        sudo apt-get install -y git-lfs
+        git lfs install
         pip install -r requirements.txt
         pip install transformers torch
-
-    - name: Verify model files
-      run: |
-        cd saved_models
-        ls -lh
-        file pytorch_model.bin  # Vérifie le type de fichier
 
     - name: Run evaluation
       run: |
@@ -53,42 +39,58 @@ jobs:
             ('Très déçu', 0),
             ('Je recommande', 1),
             ('Mauvaise qualité', 0),
-            ('Excellent rapport qualité-prix', 1)
-        ]
+            ('Excellent rapport qualité-prix', 1),
+            ('Pas terrible', 0),
+            ('Incroyable !', 1),
+            ('Déception totale', 0)
+        ]  # Ajout de plus d'exemples pour meilleure évaluation
 
-        # Chargement avec paramètres de sécurité
+        # Chargement du modèle
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
         model = AutoModelForSequenceClassification.from_pretrained(
             model_dir,
-            local_files_only=True,
-            use_safetensors=False,
-            torch_dtype=torch.float32
+            local_files_only=True
         )
         model.eval()
 
         # Évaluation
         correct = 0
+        results = []
         for text, expected in test_cases:
             inputs = tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
             with torch.no_grad():
                 outputs = model(**inputs)
             predicted = torch.argmax(outputs.logits).item()
-            correct += (predicted == expected)
+            is_correct = predicted == expected
+            correct += is_correct
+            results.append({
+                'text': text,
+                'expected': expected,
+                'predicted': predicted,
+                'correct': is_correct
+            })
 
         accuracy = correct / len(test_cases)
-        print(f'✅ Accuracy: {accuracy:.1%}')
+        print(f'\n📊 Résultats détaillés:')
+        for r in results:
+            print(f"Text: {r['text']} | Expected: {r['expected']} | Predicted: {r['predicted']} | {'✅' if r['correct'] else '❌'}")
+        
+        print(f'\n✅ Accuracy globale: {accuracy:.1%}')
         
         with open('metrics.json', 'w') as f:
             json.dump({
                 'accuracy': accuracy,
                 'tested_samples': len(test_cases),
-                'model_format': 'pytorch'
-            }, f)
+                'details': results
+            }, f, indent=2)
         
-        assert accuracy >= 0.85, f'❌ Accuracy {accuracy:.1%} < 85%'
+        if accuracy < 0.85:
+            print('\n❌ Le modèle a besoin de plus de training!')
+            exit(1)  # Échec du workflow
         "
-
+    
     - name: Upload metrics
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: model-metrics
