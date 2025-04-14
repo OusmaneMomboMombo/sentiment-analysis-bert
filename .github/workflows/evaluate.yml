@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
-        pip install safetensors transformers torch
+        pip install transformers torch
 
     - name: Run evaluation
       run: |
@@ -38,15 +38,21 @@ jobs:
             ('Excellent rapport qualité-prix', 1)
         ]
 
-        # Chargement simplifié
-        tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        # Chargement alternatif
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_dir)
+            model = AutoModelForSequenceClassification.from_pretrained(model_dir, local_files_only=True)
+        except:
+            # Fallback pour les anciens formats
+            from transformers import BertForSequenceClassification
+            model = BertForSequenceClassification.from_pretrained(model_dir, local_files_only=True)
+        
         model.eval()
 
         # Évaluation
         correct = 0
         for text, expected in test_cases:
-            inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
+            inputs = tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
             with torch.no_grad():
                 outputs = model(**inputs)
             predicted = torch.argmax(outputs.logits).item()
