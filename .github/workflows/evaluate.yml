@@ -74,13 +74,13 @@ jobs:
         # Affichage des résultats
         print('\n📊 Résultats détaillés:')
         for r in results:
-            print(f"Texte: {r['text'][:50]}...")
-            print(f"Attendu: {r['expected']}, Prédit: {r['predicted']}")
-            print(f"Résultat: {'✅' if r['correct'] else '❌'}\n")
+            print(f\"Texte: {r['text'][:50]}...\")
+            print(f\"Attendu: {r['expected']}, Prédit: {r['predicted']}\")
+            print(f\"Résultat: {'✅' if r['correct'] else '❌'}\n\")
 
         print(f'\n✅ Accuracy globale: {accuracy:.1%}')
         
-        # Sauvegarde des métriques (sans échec si <85%)
+        # Sauvegarde des métriques
         with open('metrics.json', 'w') as f:
             json.dump({
                 'accuracy': accuracy,
@@ -88,7 +88,7 @@ jobs:
                 'details': results
             }, f, indent=2)
         
-        # Simple avertissement au lieu d'échec
+        # Avertissement seulement
         if accuracy < 0.85:
             print('\n⚠️ Avertissement: Accuracy inférieure à 85%')
         else:
