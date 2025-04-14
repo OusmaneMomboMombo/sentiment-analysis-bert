@@ -21,6 +21,13 @@ jobs:
         pip install -r requirements.txt
         pip install transformers torch
 
+    - name: Clean up model files
+      run: |
+        # Garde seulement les fichiers nécessaires
+        cd saved_models
+        rm -f model.safetensors bert_sentiment.pth
+        ls -l  # Vérification
+
     - name: Run evaluation
       run: |
         python -c "
@@ -38,15 +45,13 @@ jobs:
             ('Excellent rapport qualité-prix', 1)
         ]
 
-        # Chargement alternatif
-        try:
-            tokenizer = AutoTokenizer.from_pretrained(model_dir)
-            model = AutoModelForSequenceClassification.from_pretrained(model_dir, local_files_only=True)
-        except:
-            # Fallback pour les anciens formats
-            from transformers import BertForSequenceClassification
-            model = BertForSequenceClassification.from_pretrained(model_dir, local_files_only=True)
-        
+        # Chargement avec désactivation explicite de safetensors
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_dir,
+            local_files_only=True,
+            use_safetensors=False  # Force le format PyTorch
+        )
         model.eval()
 
         # Évaluation
@@ -56,12 +61,18 @@ jobs:
             with torch.no_grad():
                 outputs = model(**inputs)
             predicted = torch.argmax(outputs.logits).item()
-            if predicted == expected:
-                correct += 1
+            correct += (predicted == expected)
 
+        # Résultats
         accuracy = correct / len(test_cases)
+        print(f'Accuracy: {accuracy:.1%}')
+        
         with open('metrics.json', 'w') as f:
-            json.dump({'accuracy': accuracy, 'tested_samples': len(test_cases)}, f)
+            json.dump({
+                'accuracy': accuracy,
+                'tested_samples': len(test_cases),
+                'model_format': 'pytorch'
+            }, f)
         
         assert accuracy >= 0.85, f'Accuracy {accuracy:.1%} < 85%'
         "
@@ -71,3 +82,4 @@ jobs:
       with:
         name: model-metrics
         path: metrics.json
+        
